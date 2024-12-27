@@ -1,0 +1,101 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "index"
+version = "0.5.0.dev0"
+authors = [{name = "Stan Ovchinnikov", email = "lishnih@gmail.com"}]
+description = "A lightweight table data indexing system"
+readme = "README.md"
+license = {file = "LICENSE.txt"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Manufacturing",
+    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Topic :: Utilities",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "openpyxl>=3.0",
+    "pyxlsb>=1.0",
+    "pymongo>=4.0",
+]
+
+[project.urls]
+Source = "https://gitflic.ru/project/stan/index"
+
+[project.scripts]
+index = "index.cli:main"
+
+[tool.flit.module]
+name = "index"
+
+[tool.flit.sdist]
+include = [
+    "docs/",
+    "examples/",
+    "tests/",
+    "CHANGES.rst",
+]
+exclude = [
+    "docs/_build/",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = [
+    "error",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["index", "tests"]
+
+[tool.coverage.paths]
+source = ["src", "*/site-packages"]
+
+[tool.mypy]
+python_version = "3.8"
+files = ["src/index"]
+show_error_codes = true
+pretty = true
+strict = true
+
+[[tool.mypy.overrides]]
+module = [
+    "asgiref.*",
+    "dotenv.*",
+    "cryptography.*",
+    "importlib_metadata",
+]
+ignore_missing_imports = true
+
+[tool.pyright]
+pythonVersion = "3.8"
+include = ["src/index"]
+typeCheckingMode = "basic"
+
+[tool.ruff]
+src = ["src"]
+fix = true
+show-fixes = true
+output-format = "full"
+
+[tool.ruff.lint]
+select = [
+    "B",  # flake8-bugbear
+    "E",  # pycodestyle error
+    "F",  # pyflakes
+    "I",  # isort
+    "UP",  # pyupgrade
+    "W",  # pycodestyle warning
+]
+
+[tool.ruff.lint.isort]
+force-single-line = true
+order-by-type = false
