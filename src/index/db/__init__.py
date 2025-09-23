@@ -77,9 +77,14 @@ class Db():
 
     # Methods linked to files collection/table
 
-    def reg_file(self, filename, **kargs):
-        dirname = os.path.dirname(filename)
-        basename = os.path.basename(filename)
+    def reg_file(self, filename, source=None, **kargs):
+        if source:
+            dirname = os.path.dirname(source)
+            basename = f"*/{filename}"
+            source  = os.path.basename(source)
+        else:
+            dirname = os.path.dirname(filename)
+            basename = os.path.basename(filename)
 
         collection = self.db[self.cname_files]
 
@@ -94,8 +99,10 @@ class Db():
             dir = dirname,
             name = basename,
             created = datetime.utcnow(),
+            source = source,
             **kargs
         )
+        record_dict = {k: v for k, v in record_dict.items() if v is not None}
         res = collection.insert_one(record_dict)
 
         return False, res.inserted_id

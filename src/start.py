@@ -4,6 +4,6 @@
 
 from dotenv import load_dotenv; load_dotenv()
 
-from .cli import main
+from index.cli import main
 
 main()

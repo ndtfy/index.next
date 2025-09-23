@@ -8,8 +8,8 @@ from ..chunk import chunk
 from ..timer import Timer
 
 
-def main_yield(filename, db, config, f_id, **kargs):
-    verbose = kargs.get('verbose')
+def main_yield(filename, config):
+    verbose = config.get('verbose')
 
     with Timer(f"[ {__name__} ] open_workbook '{filename}'", verbose) as t:
         book = open_workbook(filename)

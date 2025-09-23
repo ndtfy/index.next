@@ -8,8 +8,8 @@ from openpyxl import load_workbook
 from ..timer import Timer
 
 
-def main_yield(filename, db, config, f_id, **kargs):
-    verbose = kargs.get('verbose')
+def main_yield(filename, config):
+    verbose = config.get('verbose')
 
     with Timer(f"[ {__name__} ] load_workbook '{filename}'", verbose) as t:
         book = load_workbook(filename, read_only=True, data_only=True)
@@ -35,11 +35,14 @@ def main_yield(filename, db, config, f_id, **kargs):
                 _r = idx + 1
 
                 row_values = [i.value for i in row]
-                record = dict(row=row_values, _r=_r)
-                records.append(record)
+                if any(x is not None for x in row_values):
+                    record = dict(row=row_values, _r=_r)
+                    records.append(record)
 
             yield records, {
                 '_shid': index,
 #               '_shname': sh.title
             }
-            records = []
+            records = []        # release memory
+
+    book.close()

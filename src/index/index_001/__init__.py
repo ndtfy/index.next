@@ -4,45 +4,36 @@
 
 import os
 from importlib import import_module
+from tempfile import mkstemp
 
 
-def main(filename, db, config, **kargs):
-    verbose = kargs.get('verbose')
-    debug   = kargs.get('debug')
+def main(filename, db, config, extra_info={}):
+    cname   = config.get('cname', 'plain')
+    verbose = config.get('verbose')
+    debug   = config.get('debug')
 
-    dirname = os.path.dirname(filename)
-
-    cname = kargs.get('cname', 'plain')
     collection = db[cname]
 
-    saved, f_id = db.reg_file(filename)
-    db.push_file_record(
-        f_id,
-        __name__,
-        config = config,
-        cname = cname
-    )
-
+    f_id = None
     try:
+        source = extra_info.get('source')
+        localname = extra_info.get('localname', filename)
+
         _, ext = os.path.splitext(filename)
+        ext = ext.lower()
 
-        if ext == '.xlsb':
-            module = import_module(f".format_xlsb", __package__ )
+        module = get_by_ext(ext)
+        if not module:
+            if debug:
+                wrapper = f" (source {source})" if source else ''
+                print(f"Skipping file: {filename}{wrapper}")
 
-        elif ext == '.xlsx':
-            module = import_module(f".format_xlsx", __package__ )
+            return
 
-        else:
-            raise Exception(f"Unknown file type: {ext}")
+        f_id = reg_file(filename, db, config, cname, source)
 
         total = 0
-        for records, extra in module.main_yield(
-            filename,
-            db,
-            config,
-            f_id,
-            **kargs
-        ):
+        for records, extra in module.main_yield(localname, config):
             if len(records):
                 db.insert_many(
                     collection,
@@ -55,26 +46,58 @@ def main(filename, db, config, **kargs):
                 total += len(records)
                 if debug:
                     print("Cumulative:", total)
-
+    
             else:
                 if verbose:
                     print("Empty list")
-
-        if verbose:
+    
+        if total and verbose:
             print(f"Total: {total}; Grand total: { collection.estimated_document_count() }")
-
+    
         db.push_file_record(
             f_id,
             "completed",
             total = total
         )
 
-    except Exception as e:
-        db.push_file_record(
-            f_id,
-            "exception",
-            error = True,
-            msg = str(e)
-        )
+    except Exception as ex:
+        if f_id:
+            db.push_file_record(
+                f_id,
+                "exception",
+                type = type(ex).__name__,
+                args = ex.args
+            )
+        else:
+            raise
 
-        raise
+        if False:
+            print(e)
+        else:
+            raise
+
+
+def get_by_ext(ext):
+    module = None
+
+    if ext == '.xlsb':
+        module = import_module(f".format_xlsb", __package__ )
+
+    elif ext == '.xlsx':
+        module = import_module(f".format_xlsx", __package__ )
+
+    elif ext == '.xls':
+        module = import_module(f".format_xls", __package__ )
+
+    return module
+
+
+def reg_file(filename, db, config, cname, source=None):
+    saved, f_id = db.reg_file(filename, source)
+
+    # Shield the connection parameters
+    config = {k: v for k, v in config.items() if k[0:2] != 'db'}
+
+    db.push_file_record(f_id, __name__, config = config, cname = cname)
+
+    return f_id

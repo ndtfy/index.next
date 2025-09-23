@@ -10,7 +10,7 @@ from openpyxl import load_workbook
 from .timer import Timer
 
 
-def get_definition(filename, set_name, **kargs):
+def get_definition(filename, suit_name, **kargs):
     verbose = kargs.get('verbose')
     debug   = kargs.get('debug')
 
@@ -23,9 +23,9 @@ def get_definition(filename, set_name, **kargs):
     nrows       = res['nrows']
     rows_values = res['rows_values']
     key_map     = res['key_map']
-    set_names   = res['set_names']
+    suit_names   = res['suit_names']
 
-    rows_values, keys = get_set_filtered(rows_values, key_map, set_names, set_name)
+    rows_values, keys = get_set_filtered(rows_values, key_map, suit_names, suit_name)
 
     return nrows, rows_values, keys
 
@@ -46,7 +46,7 @@ def get_description(filename, **kargs):
     rows_idx    = []
     rows_values = []
     set_idx     = []
-    set_names   = []
+    suit_names   = []
     key_map     = []
 
     for i, row in enumerate(sh.rows, 1):
@@ -57,11 +57,11 @@ def get_description(filename, **kargs):
                     rows_idx.append(j)
 
                 elif cell.value:
-                    if cell.value in set_names:
+                    if cell.value in suit_names:
                         raise Exception(f"Key duplicates: {cell.value}")
 
                     set_idx.append(j)
-                    set_names.append(cell.value)
+                    suit_names.append(cell.value)
 
         else:
             rows_values.append( tuple([i.value for i in (map(row.__getitem__, rows_idx))]) )
@@ -72,13 +72,13 @@ def get_description(filename, **kargs):
 #       'rows_idx':    rows_idx,
         'rows_values': rows_values,
 #       'set_idx':     set_idx,
-        'set_names':   set_names,
+        'suit_names':   suit_names,
         'key_map':     key_map
     }
 
 
-def get_set(key_map, set_names, set_name):
-    idx = set_names.index(set_name)
+def get_set(key_map, suit_names, suit_name):
+    idx = suit_names.index(suit_name)
 
     return [i[idx] for i in key_map]
 
@@ -92,8 +92,8 @@ def filter_columns(rows_values, keys_raw):
     return list(rows), list(keys)
 
 
-def get_set_filtered(rows_values, key_map, set_names, set_name):
-    keys_raw = get_set(key_map, set_names, set_name)
+def get_set_filtered(rows_values, key_map, suit_names, suit_name):
+    keys_raw = get_set(key_map, suit_names, suit_name)
 
     return filter_columns(rows_values, keys_raw)
 

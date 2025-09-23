@@ -10,7 +10,7 @@ import configparser
 from pprint import pformat
 from importlib.metadata import version
 
-from . import main as indexing
+from . import main as run
 
 
 def decode(code, value):
@@ -43,7 +43,7 @@ def main():
 
     parser.add_argument('filename',
                         nargs='?',
-                        help="specify a file",
+                        help="specify a path (dir/file)",
                         metavar="file.xlsx")
 
     parser.add_argument('--dburi',
@@ -88,22 +88,26 @@ def main():
 
     if args.version:
         print(f"Python     {platform.python_version()}")
+        print(f"pymongo    {get_version('pymongo')}")
         print(f"openpyxl   {get_version('openpyxl')}")
         print(f"pyxlsb     {get_version('pyxlsb')}")
-        print(f"pymongo    {get_version('pymongo')}")
+        print(f"xlrd       {get_version('xlrd')}")
         print(f"{__package__:10} {get_version(__package__)}")
 
         return
 
     if args.filename is None:
-        print("File not specified")
+        print("Path not specified")
 
         return
 
-    if not os.path.isfile(args.filename):
-        raise FileNotFoundError(f"File not found: '{args.filename}'")
+    if not os.path.exists(args.filename):
+        raise FileNotFoundError(f"Path not found: '{args.filename}'")
 
-    dirname = os.path.dirname(args.filename)
+    if os.path.isfile(args.filename):
+        dirname = os.path.dirname(args.filename)
+    else:
+        dirname = args.filename
 
     # Optionals arguments
     dburi       = args.dburi  or os.getenv("dburi",       "mongodb://localhost")
@@ -113,7 +117,7 @@ def main():
     config_file = args.config or os.getenv("config_file", os.path.join(dirname, "parser.cfg"))
 
     if args.debug:
-        print(f"Config file: {config_file}")
+        print(f"Config file: '{config_file}'")
 
     # Read config file specified
     if os.path.isfile(config_file):
@@ -141,7 +145,7 @@ def main():
         print("Config file does not exist, default configuration will be applied\n")
         config = {}
 
-    res = indexing(
+    res = run(
         args.filename,
         config      = config,
         dburi       = dburi,
