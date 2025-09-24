@@ -4,9 +4,9 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "index"
-version = "0.5.1.dev1"
+version = "0.5.1.dev2"
 authors = [{name = "Stan Ovchinnikov", email = "lishnih@gmail.com"}]
-description = "A lightweight table data indexing system"
+description = "A lightweight spreadsheet indexing system"
 readme = "README.md"
 license = {file = "LICENSE.txt"}
 classifiers = [
@@ -48,6 +48,9 @@ include = [
 ]
 exclude = [
     "docs/_build/",
+    "src/start.py",
+    "src/index/index_002",
+    ".gitignore",
 ]
 
 [tool.pytest.ini_options]
