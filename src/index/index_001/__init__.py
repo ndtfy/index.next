@@ -4,11 +4,10 @@
 
 import os
 from importlib import import_module
-from tempfile import mkstemp
 
 
 def main(filename, db, config, extra_info={}):
-    cname   = config.get('cname', 'plain')
+    cname   = config.get('cname', 'dump')
     verbose = config.get('verbose')
     debug   = config.get('debug')
 
@@ -27,6 +26,8 @@ def main(filename, db, config, extra_info={}):
             if debug:
                 wrapper = f" (source {source})" if source else ''
                 print(f"Skipping file: {filename}{wrapper}")
+
+            reg_file(filename, db, None, None)
 
             return
 
@@ -96,8 +97,11 @@ def reg_file(filename, db, config, cname, source=None):
     saved, f_id = db.reg_file(filename, source)
 
     # Shield the connection parameters
-    config = {k: v for k, v in config.items() if k[0:2] != 'db'}
+    if isinstance(config, dict):
+        config = {k: v for k, v in config.items() if k[0:2] != 'db'}
+        db.push_file_record(f_id, __name__, config = config, cname = cname)
 
-    db.push_file_record(f_id, __name__, config = config, cname = cname)
+    else:
+        db.push_file_record(f_id, 'skipped')
 
     return f_id

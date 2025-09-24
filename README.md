@@ -1,41 +1,53 @@
 # index
 
-Легковесная система индексации табличных данных.
+A lightweight spreadsheet indexing system.
 
-## Установка и настройка
+## Installation & Configuration
 
-> index требует **Python 3.8.0 или выше**.
+> `index` requires **Python 3.6.0 or higher** and **pip 19.0 or higher**.
 
-Также будут установлены пакеты `openpyxl`, `pyxlsb`, `pymongo`.
+To install, use the following command:
 
-Перед индексированием таблиц (поддерживаются форматы файлов .xlsx и .xlsb) необходимо описать структуру, в которой каждой колонке таблицы назначается ключ.
-Скрипт может работать сразу после установки без настроечных файлов, но, в этом случае, данные сохраняются необработанными - удобно, чтобы убедиться, что скрипт работает, но совершенно бесполезно.
-
-## Быстрый запуск
-
-Установите переменные среды и запустите выполнение скрипта с указанием файла для индексации:
+```bash
+pip install --pre index
 ```
-$ set dburi=mongodb://localhost
-$ set dbname=db1
-$ set cname=$BASEDIRNAME
-$ set cname_files=_files
-$ index <path>/filename.xlsx
-```
-Скрипт будет искать файл с определениями таблицы `parser.cfg`.
 
-## Статус проекта
+This will automatically install all necessary packages for operation: `openpyxl`, `pyxlsb`, `pymongo`.
+
+If you also need to index legacy `*.xls` format files, use the command:
+
+```bash
+pip install --pre index[obsolete]
+```
+
+## Quick Start
+
+```bash
+index file.xlsx
+```
+
+The file contents will be read and saved to a MongoDB database.
+
+Default parameters:
+```
+dburi = mongodb://localhost
+dbname = db1
+cname = dump
+cname_files = _files
+```
+
+## Project Status
 
 `Development Status :: 4 - Beta`
 
-## Немного о проекте
+## About the Project
 
-Изначально проект располагался здесь: [https://github.com/ndtfy/index](https://github.com/ndtfy/index).
-Но данный репозиторий долгое время не обновлялся и, фактически был заброшен, хотя сам проект продолжает развиваться. В связи с тем, что в проекте произошли существенные изменения (например, вместо реляционных БД SQL я начал использовать MongoDB), да и код был написан заново с нуля, было решено создать новый репозиторий.
+The project was originally located here: [https://github.com/ndtfy/index](https://github.com/ndtfy/index). Over time, the project's architecture was changed, and the project has moved.
 
-## Полезные ссылки
+## Useful Links
 
-[https://pypi.org/project/index/](https://pypi.org/project/index/)
+*   [https://pypi.org/project/index/](https://pypi.org/project/index/)
 
-## Лицензия
+## License
 
-- MIT
+*   MIT

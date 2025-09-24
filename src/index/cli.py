@@ -8,7 +8,11 @@ import json
 import platform
 import configparser
 from pprint import pformat
-from importlib.metadata import version
+
+try:
+    from importlib.metadata import version  # Available since v3.8
+except:
+    version = lambda x: '...'
 
 from . import main as run
 
@@ -55,7 +59,7 @@ def main():
                         metavar="name")
 
     parser.add_argument('--cname',
-                        help="specify a collection/table name (default is 'plain')",
+                        help="specify a collection/table name (default is 'dump')",
                         metavar="name")
 
     parser.add_argument('--cfiles',
@@ -112,7 +116,7 @@ def main():
     # Optionals arguments
     dburi       = args.dburi  or os.getenv("dburi",       "mongodb://localhost")
     dbname      = args.dbname or os.getenv("dbname",      "db1")
-    cname       = args.cname  or os.getenv("cname",       "plain")
+    cname       = args.cname  or os.getenv("cname",       "dump")
     cname_files = args.cfiles or os.getenv("cname_files", "_files")
     config_file = args.config or os.getenv("config_file", os.path.join(dirname, "parser.cfg"))
 
