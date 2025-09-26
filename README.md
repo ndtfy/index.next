@@ -1,6 +1,12 @@
 # index
 
+*Read this in other languages: [English](README.md), [Русский](README.ru-RU.md)*
+
 A lightweight spreadsheet indexing system.
+
+[![PyPI - Version](https://img.shields.io/pypi/v/index?color=%23d0d0ff)](https://pypi.org/project/index/)
+![PyPI - Status](https://img.shields.io/pypi/status/index)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/index)
 
 ## Installation & Configuration
 
