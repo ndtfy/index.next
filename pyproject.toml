@@ -4,7 +4,7 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "index"
-version = "0.5.1.dev2"
+version = "0.5.2.dev0"
 authors = [{name = "Stan Ovchinnikov", email = "lishnih@gmail.com"}]
 description = "A lightweight spreadsheet indexing system"
 readme = "README.md"

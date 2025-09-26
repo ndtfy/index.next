@@ -8,34 +8,71 @@ from ..chunk import chunk
 from ..timer import Timer
 
 
-def main_yield(filename, config):
-    verbose = config.get('verbose')
-
-    with Timer(f"[ {__name__} ] open_workbook '{filename}'", verbose) as t:
+def main_yield(filename, db, options):
+    with Timer(f"[ {__name__} ] open_workbook", db.verbose) as t:
         book = open_workbook(filename)
 
-    sheet_list  = config.get('sheets', book.sheets)
-    chunk_rows  = config.get('chunk_rows', 5000)
+    sheet_list  = options.get('sheets', book.sheets)
+    chunk_rows  = options.get('chunk_rows', 5000)
 
-    for index in sheet_list:            # integer or string
-        sh = book.get_sheet(index)      # index is 1-based
+    for name in sheet_list:             # 1-based integer or string
+        # 1-based integer and string
+        shid, shname = get_shid_name(book.sheets, name)
+        if shid is None:
+            db.push_task_record('warning', f"Wrong sheed name/id: {name}")
 
-        if verbose:
-            print(f"Processing: # {index} ({sh.name}) / dimension: {sh.dimension}")
+        # get_sheet accepts 1-based integer as well as string
+        sh = book.get_sheet(name)
+
+        if db.verbose:
+            print(f"Processing: # {shid} ({sh.name}) / dimension: {sh.dimension}")
 
         for ki, chunk_i in enumerate(chunk(sh.rows(), chunk_rows)):
             records = []
 
             for kj, row in enumerate(chunk_i):
-                idx = ki * chunk_rows + kj
-                _r = idx + 1
+                row_values = get_row_values(row)
+                if row_values:
+                    idx = ki * chunk_rows + kj
+                    _r = idx + 1
 
-                row_values = [i.v for i in row]
-                record = dict(row=row_values, _r=_r)
-                records.append(record)
+                    record = dict(row=row_values, _r=_r)
+                    records.append(record)
 
             yield records, {
-                '_shid': index,
+                '_shid': shid,
 #               '_shname': sh.name
             }
-            records = []
+            records = []        # release memory
+
+
+def get_shid_name(sheet_names, name):
+    if isinstance(name, int):
+        if len(sheet_names) < name:
+            return None, None
+
+        shid0 = name - 1
+        name = sheet_names[shid0]
+
+    else:
+        if name not in sheet_names:
+            return None, None
+
+        shid0 = sheet_names.index(name)
+
+    return shid0 + 1, name
+
+
+def get_row_values(row):
+    values = [get_strip(i.v) for i in row]
+    if any(x is not None for x in values):
+        return values
+
+    return []
+
+
+def get_strip(s):
+    if isinstance(s, str):
+        return s.strip()
+
+    return s

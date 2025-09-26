@@ -2,17 +2,18 @@
 # coding=utf-8
 # Stan 2021-05-31
 
-import os
-import re
-import json
-import platform
+import argparse
 import configparser
+import json
+import os
+import platform
+import re
 from pprint import pformat
 
 try:
-    from importlib.metadata import version  # Available since v3.8
+    from importlib.metadata import version  # Available since Python 3.8
 except:
-    version = lambda x: '...'
+    version = None
 
 from . import main as run
 
@@ -33,17 +34,35 @@ def decode(code, value):
 
 def get_version(pkg_name):
     try:
-        ver = version(pkg_name)
+        ver = version(pkg_name) if version else '...'
     except:
-        ver = '<not installed>'
+        ver = "<not installed>"
 
     return ver
 
 
-def main():
-    import argparse
+def resolve_vars(vars, dictionary):
+    for key, value in vars.items():
+        if isinstance(value, str):
+            for dkey, dvalue in dictionary.items():
+                value = value.replace(dkey, dvalue)
 
-    parser = argparse.ArgumentParser(description="Index table data")
+            vars[key] = value
+
+
+def debug_vars(vars, level=1):
+    kv = vars.items()
+    for key, value in kv:
+        print(f"{'  ' * level}- {key:16}: {value}")
+
+    if not kv:
+        print("  <empty>")
+
+    print()
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Index a spreadsheet")
 
     parser.add_argument('filename',
                         nargs='?',
@@ -59,11 +78,11 @@ def main():
                         metavar="name")
 
     parser.add_argument('--cname',
-                        help="specify a collection/table name (default is 'dump')",
+                        help="specify a collection name (default is 'dump')",
                         metavar="name")
 
     parser.add_argument('--cfiles',
-                        help="specify a collection/table name for file info (default is '_files')",
+                        help="specify a collection name for file log (default is '_files')",
                         metavar="name")
 
     parser.add_argument('--config',
@@ -86,17 +105,16 @@ def main():
 
     if args.debug:
         print("Command line arguments:")
-        for key, value in vars(args).items():
-            print(f"- {key:16}: {value}")
-        print()
+        debug_vars(vars(args))
 
     if args.version:
         print(f"Python     {platform.python_version()}")
-        print(f"pymongo    {get_version('pymongo')}")
-        print(f"openpyxl   {get_version('openpyxl')}")
-        print(f"pyxlsb     {get_version('pyxlsb')}")
-        print(f"xlrd       {get_version('xlrd')}")
-        print(f"{__package__:10} {get_version(__package__)}")
+        if version:
+            print(f"pymongo    {get_version('pymongo')}")
+            print(f"openpyxl   {get_version('openpyxl')}")
+            print(f"pyxlsb     {get_version('pyxlsb')}")
+            print(f"xlrd       {get_version('xlrd')}")
+            print(f"{__package__:10} {get_version(__package__)}")
 
         return
 
@@ -108,58 +126,88 @@ def main():
     if not os.path.exists(args.filename):
         raise FileNotFoundError(f"Path not found: '{args.filename}'")
 
+    # Optionals arguments
+    dburi       = args.dburi  or os.getenv("INDEX_DBURI",       "mongodb://localhost")
+    dbname      = args.dbname or os.getenv("INDEX_DBNAME",      "db1")
+    cname       = args.cname  or os.getenv("INDEX_CNAME",       "dump")
+    cname_files = args.cfiles or os.getenv("INDEX_CNAME_FILES", "_files")
+
+    # Resolve config path
     if os.path.isfile(args.filename):
         dirname = os.path.dirname(args.filename)
     else:
         dirname = args.filename
 
-    # Optionals arguments
-    dburi       = args.dburi  or os.getenv("dburi",       "mongodb://localhost")
-    dbname      = args.dbname or os.getenv("dbname",      "db1")
-    cname       = args.cname  or os.getenv("cname",       "dump")
-    cname_files = args.cfiles or os.getenv("cname_files", "_files")
-    config_file = args.config or os.getenv("config_file", os.path.join(dirname, "parser.cfg"))
+    config_file = args.config or os.getenv("config_file")
+    if config_file:
+        if not os.path.isabs(config_file):
+            config_file = os.path.join(dirname, config_file)
 
-    if args.debug:
-        print(f"Config file: '{config_file}'")
+        if not os.path.isfile(config_file):
+            raise FileNotFoundError(f"Config not found: '{config_file}'")
 
-    # Read config file specified
+    else:
+        config_file = os.path.join(dirname, "parser.cfg")
+
+    # Read config file
     if os.path.isfile(config_file):
         c = configparser.ConfigParser()
         c.read(config_file, encoding="utf8")
-        config = dict(c.items("DEFAULT"))
-        for key, value in config.items():
+
+        # Read and resolve parser section
+        parser_options = dict(c.items("DEFAULT"))
+        for key, value in parser_options.items():
             res = re.split("^{{ (.+) }}", value, 1)
             if len(res) == 3:
                 _, code, value = res
-                config[key] = decode(code, value)
+                parser_options[key] = decode(code, value)
 
         if args.debug:
-            if len(config):
-                print("Config:")
-                for key, value in config.items():
-                    print(f"- {key:20}: {value}")
-
-            else:
-                print("Config is empty")
-
-            print()
+            print(f"Config file '{config_file}', parser section:")
+            debug_vars(parser_options)
 
     else:
-        print("Config file does not exist, default configuration will be applied\n")
-        config = {}
+        print("Config file is not specified, default parser parameters will be applied\n")
+        parser_options = {}
+
+    # Define variables
+    parentdirname = os.path.dirname(dirname)
+    dictionary = {
+        '${DIRNAME}':           dirname,
+        '${BASEDIRNAME}':       os.path.basename(dirname),
+        '${PARENTDIRNAME}':     parentdirname,
+        '${PARENTBASEDIRNAME}': os.path.basename(parentdirname),
+    }
+    if args.debug:
+        print("Dictionary:")
+        debug_vars(dictionary)
+
+    # Resolve app config
+    cli_arguments = {
+        'dburi':       dburi,
+#       'tls_ca_file': tls_ca_file,
+        'dbname':      dbname,
+        'cname':       cname,
+        'cname_files': cname_files,
+        'verbose':     args.verbose,
+        'debug':       args.debug
+    }
+
+    resolve_vars(cli_arguments, dictionary)
+    if args.debug:
+        print("Cli parameters resolved:")
+        debug_vars(cli_arguments)
+
+    # Resolve parser parameters
+    resolve_vars(parser_options, dictionary)
+    if args.debug:
+        print("Parser parameters resolved:")
+        debug_vars(parser_options)
 
     res = run(
         args.filename,
-        config      = config,
-        dburi       = dburi,
-#       tls_ca_file = tls_ca_file,
-        dbname      = dbname,
-        cname       = cname,
-        cname_files = cname_files,
-        config_file = config_file,
-        verbose     = args.verbose,
-        debug       = args.debug
+        config = cli_arguments,
+        parser_options = parser_options
     )
 
     if args.verbose:

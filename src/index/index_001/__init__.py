@@ -2,80 +2,26 @@
 # coding=utf-8
 # Stan 2022-02-05
 
+"""Default parser for processing of spreadshhet files.
+Available file formats: xls, xlsx, xlsm, xlsb.
+"""
+
 import os
 from importlib import import_module
 
 
-def main(filename, db, config, extra_info={}):
-    cname   = config.get('cname', 'dump')
-    verbose = config.get('verbose')
-    debug   = config.get('debug')
+__build__ = 1
+__rev__   = "2025-09-26"
 
-    collection = db[cname]
 
-    f_id = None
-    try:
-        source = extra_info.get('source')
-        localname = extra_info.get('localname', filename)
-
+def main(filename, db, parser_options={}):
         _, ext = os.path.splitext(filename)
         ext = ext.lower()
 
         module = get_by_ext(ext)
-        if not module:
-            if debug:
-                wrapper = f" (source {source})" if source else ''
-                print(f"Skipping file: {filename}{wrapper}")
-
-            reg_file(filename, db, None, None)
-
-            return
-
-        f_id = reg_file(filename, db, config, cname, source)
-
-        total = 0
-        for records, extra in module.main_yield(localname, config):
-            if len(records):
-                db.insert_many(
-                    collection,
-                    records,
-                    verbose,
-                    _fid = f_id,
-                    ** extra,
-                    ** config.get('record_keys', {})
-                )
-                total += len(records)
-                if debug:
-                    print("Cumulative:", total)
-    
-            else:
-                if verbose:
-                    print("Empty list")
-    
-        if total and verbose:
-            print(f"Total: {total}; Grand total: { collection.estimated_document_count() }")
-    
-        db.push_file_record(
-            f_id,
-            "completed",
-            total = total
-        )
-
-    except Exception as ex:
-        if f_id:
-            db.push_file_record(
-                f_id,
-                "exception",
-                type = type(ex).__name__,
-                args = ex.args
-            )
-        else:
-            raise
-
-        if False:
-            print(e)
-        else:
-            raise
+        if module:
+            for res in module.main_yield(filename, db, parser_options):
+                yield res
 
 
 def get_by_ext(ext):
@@ -84,24 +30,10 @@ def get_by_ext(ext):
     if ext == '.xlsb':
         module = import_module(f".format_xlsb", __package__ )
 
-    elif ext == '.xlsx':
+    elif ext == '.xlsx' or ext == '.xlsm':
         module = import_module(f".format_xlsx", __package__ )
 
     elif ext == '.xls':
         module = import_module(f".format_xls", __package__ )
 
     return module
-
-
-def reg_file(filename, db, config, cname, source=None):
-    saved, f_id = db.reg_file(filename, source)
-
-    # Shield the connection parameters
-    if isinstance(config, dict):
-        config = {k: v for k, v in config.items() if k[0:2] != 'db'}
-        db.push_file_record(f_id, __name__, config = config, cname = cname)
-
-    else:
-        db.push_file_record(f_id, 'skipped')
-
-    return f_id
