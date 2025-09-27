@@ -8,7 +8,6 @@ import json
 import os
 import platform
 import re
-from pprint import pformat
 
 try:
     from importlib.metadata import version  # Available since Python 3.8
@@ -85,6 +84,10 @@ def main():
                         help="specify a collection name for file log (default is '_files')",
                         metavar="name")
 
+    parser.add_argument('--ctasks',
+                        help="specify a collection name for task info (default is '_tasks')",
+                        metavar="name")
+
     parser.add_argument('--config',
                         help="specify a config file (default is 'parser.cfg' located in the target directory)",
                         metavar="parser.cfg")
@@ -127,16 +130,18 @@ def main():
         raise FileNotFoundError(f"Path not found: '{args.filename}'")
 
     # Optionals arguments
-    dburi       = args.dburi  or os.getenv("INDEX_DBURI",       "mongodb://localhost")
-    dbname      = args.dbname or os.getenv("INDEX_DBNAME",      "db1")
-    cname       = args.cname  or os.getenv("INDEX_CNAME",       "dump")
-    cname_files = args.cfiles or os.getenv("INDEX_CNAME_FILES", "_files")
+    dburi       = args.dburi  or os.getenv("INDEX_DBURI")       or "mongodb://localhost"
+    dbname      = args.dbname or os.getenv("INDEX_DBNAME")      or "db1"
+    cname       = args.cname  or os.getenv("INDEX_CNAME")       or "dump"
+    cname_files = args.cfiles or os.getenv("INDEX_CNAME_FILES") or "_files"
+    cname_tasks = args.ctasks or os.getenv("INDEX_CNAME_TASKS") or "_tasks"
 
     # Resolve config path
-    if os.path.isfile(args.filename):
-        dirname = os.path.dirname(args.filename)
+    fullname = os.path.abspath(args.filename)
+    if os.path.isfile(fullname):
+        dirname = os.path.dirname(fullname)
     else:
-        dirname = args.filename
+        dirname = fullname.rstrip('/')
 
     config_file = args.config or os.getenv("config_file")
     if config_file:
@@ -173,10 +178,10 @@ def main():
     # Define variables
     parentdirname = os.path.dirname(dirname)
     dictionary = {
-        '${DIRNAME}':           dirname,
-        '${BASEDIRNAME}':       os.path.basename(dirname),
-        '${PARENTDIRNAME}':     parentdirname,
-        '${PARENTBASEDIRNAME}': os.path.basename(parentdirname),
+        '{DIRNAME}':           dirname,
+        '{BASEDIRNAME}':       os.path.basename(dirname),
+        '{PARENTDIRNAME}':     parentdirname,
+        '{PARENTBASEDIRNAME}': os.path.basename(parentdirname),
     }
     if args.debug:
         print("Dictionary:")
@@ -189,6 +194,7 @@ def main():
         'dbname':      dbname,
         'cname':       cname,
         'cname_files': cname_files,
+        'cname_tasks': cname_tasks,
         'verbose':     args.verbose,
         'debug':       args.debug
     }
@@ -209,9 +215,6 @@ def main():
         config = cli_arguments,
         parser_options = parser_options
     )
-
-    if args.verbose:
-        print("Res:", pformat(res, 2, 160), end="\n\n")
 
 
 if __name__ == '__main__':

@@ -2,20 +2,21 @@
 # coding=utf-8
 # Stan 2024-11-01
 
-from pyxlsb import open_workbook
+from pyxlsb import open_workbook, convert_date
 
 from ..chunk import chunk
 from ..timer import Timer
+from .funcs import get_shid_name
 
 
-def main_yield(filename, db, options):
+def main_yield(filename, db, options={}, **kargs):
     with Timer(f"[ {__name__} ] open_workbook", db.verbose) as t:
         book = open_workbook(filename)
 
     sheet_list  = options.get('sheets', book.sheets)
     chunk_rows  = options.get('chunk_rows', 5000)
 
-    for name in sheet_list:             # 1-based integer or string
+    for name in sheet_list:         # 1-based integer or string
         # 1-based integer and string
         shid, shname = get_shid_name(book.sheets, name)
         if shid is None:
@@ -45,34 +46,20 @@ def main_yield(filename, db, options):
             }
             records = []        # release memory
 
-
-def get_shid_name(sheet_names, name):
-    if isinstance(name, int):
-        if len(sheet_names) < name:
-            return None, None
-
-        shid0 = name - 1
-        name = sheet_names[shid0]
-
-    else:
-        if name not in sheet_names:
-            return None, None
-
-        shid0 = sheet_names.index(name)
-
-    return shid0 + 1, name
+        sh.close()
+    book.close()
 
 
 def get_row_values(row):
-    values = [get_strip(i.v) for i in row]
+    values = [parse_val(i.v) for i in row]
     if any(x is not None for x in values):
         return values
 
     return []
 
 
-def get_strip(s):
-    if isinstance(s, str):
-        return s.strip()
+def parse_val(value):
+    if isinstance(value, str):
+        return value.strip()
 
-    return s
+    return value

@@ -4,7 +4,7 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "index"
-version = "0.5.2.dev0"
+version = "0.5.3.dev0"
 authors = [{name = "Stan Ovchinnikov", email = "lishnih@gmail.com"}]
 description = "A lightweight spreadsheet indexing system"
 readme = "README.md"
@@ -23,11 +23,18 @@ requires-python = ">=3.6"
 dependencies = [
     "openpyxl>=3.0",
     "pyxlsb>=1.0",
-    "pymongo>=4.0",
+    "pymongo>=4.0"
 ]
 [project.optional-dependencies]
+dotenv = [
+    "python-dotenv>=1.0"
+]
 obsolete = [
-    "xlrd>=2.0",
+    "xlrd>=2.0"
+]
+all = [
+    "index[dotenv]",
+    "index[obsolete]"
 ]
 
 [project.urls]

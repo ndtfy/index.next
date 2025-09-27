@@ -23,26 +23,27 @@ def main(filename, config={}, parser_options={}, **kargs):
     if debug:
         print(db, end="\n\n")
 
-    if os.path.isfile(filename):
-        if verbose:
-            print(f"=== Filename: {filename} ===")
+    with Timer(f"indexing finished", verbose) as t:
+        if os.path.isfile(filename):
+            if verbose:
+                print(f"=== Filename: {filename} ===")
 
-        # Resolve variant
-        variant = parser_options.get('variant', 1)
-        parser = import_module(f".index_{variant:03}", __package__)
+            # Resolve variant
+            variant = parser_options.get('variant', 1)
+            parser = import_module(f".index_{variant:03}", __package__)
 
-        # Reg task
-        saved, t_id = db.reg_task(parser, parser_options)
+            # Reg task
+            saved, t_id = db.reg_task(parser, parser_options)
 
-        filename = os.path.abspath(filename)
-        main_file(filename, db, config, parser, parser_options)
+            filename = os.path.abspath(filename)
+            main_file(filename, db, config, parser, parser_options)
 
-    else:
-        if verbose:
-            print(f"=== Dirname: {filename} ===")
+        else:
+            if verbose:
+                print(f"=== Dirname: {filename} ===")
 
-        filename = os.path.abspath(filename)
-        main_dir(filename, db, config, parser_options)
+            filename = os.path.abspath(filename)
+            main_dir(filename, db, config, parser_options)
 
 
 def main_file(filename, db, config, parser, parser_options):
@@ -92,10 +93,10 @@ def main_file(filename, db, config, parser, parser_options):
                         if verbose:
                             print("<No records>")
 
-                if total and verbose:
-                    if debug:       # New line after Cumulative message
-                        print()
+                if debug and total:     # New line after Cumulative message
+                    print()
 
+                if verbose and total:
                     print(f"Total: {total}; Grand total: { collection.estimated_document_count() }")
 
             except Exception as ex:
@@ -156,7 +157,7 @@ def main_dir(dirname, db, config, parser_options):
     # Reg task
     saved, t_id = db.reg_task(parser, parser_options)
 
-    with Timer(f"[ main_dir ] finished", verbose) as t:
+    with Timer("[ main_dir ] finished", verbose) as t:
         for root, dirs, files in os.walk(dirname):
             for name in files:
                 filename = os.path.join(root, name)
