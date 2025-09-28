@@ -11,7 +11,7 @@ from importlib import import_module
 
 
 __build__ = 1
-__rev__ = "2025-09-27"
+__rev__ = "2025-09-28"
 
 
 def main(filename, db, parser_options={}, **kargs):

@@ -4,7 +4,7 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "index"
-version = "0.5.3.dev0"
+version = "0.5.3.dev1"
 authors = [{name = "Stan Ovchinnikov", email = "lishnih@gmail.com"}]
 description = "A lightweight spreadsheet indexing system"
 readme = "README.md"
@@ -51,12 +51,10 @@ include = [
     "docs/",
     "examples/",
     "tests/",
-    "CHANGES.rst",
 ]
 exclude = [
     "docs/_build/",
     "src/start.py",
-    "src/index/index_002",
     ".gitignore",
 ]
 

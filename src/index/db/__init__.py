@@ -16,7 +16,7 @@ class Db():
         cname_tasks = '_tasks',
         tls_ca_file = None,
         verbose     = False,
-        **kargs
+        ** kargs
     ):
         self.dburi       = dburi
         self.tls_ca_file = tls_ca_file
@@ -98,17 +98,18 @@ class Db():
             build   = parser.__build__,     # User specified
             rev     = parser.__rev__,       # User specified
             options = parser_options,
-            **amended
+            ** amended
         )
 
         res = collection.find_one(task_dict, {'_id': 1})
         if res:
+            self.current_task = res['_id']
             return True, res['_id']
 
         record_dict = dict(
-            **task_dict,
+            ** task_dict,
             doc = parser.__doc__,
-            dev = {
+            __dev = {
                 'package': parser.__package__,
                 'file':    parser.__file__
             },
@@ -117,7 +118,6 @@ class Db():
         res = collection.insert_one(record_dict)
 
         self.current_task = res.inserted_id
-
         return False, res.inserted_id
 
 
@@ -137,7 +137,7 @@ class Db():
                 '$push': {
                     'records': dict(
                         action = action,
-                        **amended,
+                        ** amended,
                         created = dt
                     )
                 }
@@ -159,20 +159,20 @@ class Db():
 
         res = collection.find_one(file_dict, {'_id': 1})
         if res:
+            self.current_file = res['_id']
             return True, res['_id']
 
         record_dict = dict(
-            **file_dict,
+            ** file_dict,
             created = dt
         )
         res = collection.insert_one(record_dict)
 
-#       self.current_file = res.inserted_id
-
+        self.current_file = res.inserted_id
         return False, res.inserted_id
 
 
-    def push_file_record(self, _id, action, **kargs):
+    def push_file_record(self, action, **kargs):
         dt = datetime.utcnow()
 
         collection = self.db[self.cname_files]
@@ -180,7 +180,7 @@ class Db():
         amended = {k: v for k, v in kargs.items() if not is_empty(v)}
 
         return collection.update_one(
-            { '_id': _id },
+            { '_id': self.current_file },
             {
                 '$set': {
                     'updated': dt,
@@ -188,7 +188,8 @@ class Db():
                 '$push': {
                     'records': dict(
                         action = action,
-                        **amended,
+                        _tid = self.current_task,
+                        ** amended,
                         created = dt
                     )
                 }
