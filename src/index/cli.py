@@ -106,9 +106,9 @@ def main():
 
     args = parser.parse_args()
 
-    if args.debug:
-        print("Command line arguments:")
-        debug_vars(vars(args))
+#   if args.debug:
+#       print("Command line arguments:")
+#       debug_vars(vars(args))
 
     if args.version:
         print(f"Python     {platform.python_version()}")
@@ -131,7 +131,7 @@ def main():
 
     # Optionals arguments
     dburi       = args.dburi  or os.getenv("INDEX_DBURI")       or "mongodb://localhost"
-    dbname      = args.dbname or os.getenv("INDEX_DBNAME")      or "db1"
+    dbname      = args.dbname or os.getenv("INDEX_DBNAME")
     cname       = args.cname  or os.getenv("INDEX_CNAME")       or "dump"
     cname_files = args.cfiles or os.getenv("INDEX_CNAME_FILES") or "_files"
     cname_tasks = args.ctasks or os.getenv("INDEX_CNAME_TASKS") or "_tasks"
@@ -156,6 +156,9 @@ def main():
 
     # Read config file
     if os.path.isfile(config_file):
+        if args.debug:
+            print(f"Config file: '{config_file}'\n")
+
         c = configparser.ConfigParser()
         c.read(config_file, encoding="utf8")
 
@@ -167,12 +170,12 @@ def main():
                 _, code, value = res
                 parser_options[key] = decode(code, value)
 
-        if args.debug:
-            print(f"Config file '{config_file}', parser section:")
-            debug_vars(parser_options)
+#       if args.debug:
+#           print("Parser section:")
+#           debug_vars(parser_options)
 
     else:
-        print("Config file is not specified, default parser parameters will be applied\n")
+        print("Config file is not specified, default parser options will be applied\n")
         parser_options = {}
 
     # Define variables
@@ -188,7 +191,7 @@ def main():
         debug_vars(dictionary)
 
     # Resolve app config
-    cli_arguments = {
+    app_config = {
         'dburi':       dburi,
 #       'tls_ca_file': tls_ca_file,
         'dbname':      dbname,
@@ -199,20 +202,20 @@ def main():
         'debug':       args.debug
     }
 
-    resolve_vars(cli_arguments, dictionary)
+    resolve_vars(app_config, dictionary)
     if args.debug:
-        print("Cli parameters resolved:")
-        debug_vars(cli_arguments)
+        print("app_config resolved:")
+        debug_vars(app_config)
 
-    # Resolve parser parameters
+    # Resolve parser options
     resolve_vars(parser_options, dictionary)
     if args.debug:
-        print("Parser parameters resolved:")
+        print("parser_options resolved:")
         debug_vars(parser_options)
 
     res = run(
         args.filename,
-        config = cli_arguments,
+        config = app_config,
         parser_options = parser_options
     )
 

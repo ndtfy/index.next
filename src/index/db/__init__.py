@@ -11,7 +11,7 @@ from ..timer import Timer
 
 class Db():
     def __init__(self, dburi,
-        dbname      = 'db1',
+        dbname      = None,
         cname_files = '_files',
         cname_tasks = '_tasks',
         tls_ca_file = None,
@@ -20,7 +20,6 @@ class Db():
     ):
         self.dburi       = dburi
         self.tls_ca_file = tls_ca_file
-        self.dbname      = dbname
         self.cname_files = cname_files
         self.cname_tasks = cname_tasks
         self.verbose     = verbose
@@ -31,13 +30,29 @@ class Db():
         self.client = pymongo.MongoClient(
             dburi,
             tlsCAFile = tls_ca_file,
+#           serverSelectionTimeoutMS = 10000
         )
-        self.db = self.client[dbname]
+
+        if not dbname:
+            self.db = self.client.get_default_database('db1')
+            dbname = self.db.name
+
+        else:
+            self.db = self.client[dbname]
+
+        self.dbname = dbname
 
 
     def __str__(self):
         server_info = self.client.server_info()
-        return f"MongoDB: [version: {server_info['version']}; sysInfo: {server_info['sysInfo']}; ok: {server_info['ok']}]"
+
+        version = server_info.get('version', '')
+        ok      = server_info.get('ok', '')
+        build   = server_info.get('buildEnvironment', {})
+        distmod  = build.get('distmod', '')
+        distarch = build.get('distarch', '')
+
+        return f"MongoDB server: version: {version}; dist: '{distmod}/{distarch}'; ok: {ok} / dbname: '{self.dbname}'"
 
 
     def __getitem__(self, cname):
