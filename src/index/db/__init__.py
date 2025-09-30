@@ -16,6 +16,7 @@ class Db():
         cname_tasks = '_tasks',
         tls_ca_file = None,
         verbose     = False,
+        debug       = False,
         ** kargs
     ):
         self.dburi       = dburi
@@ -23,6 +24,7 @@ class Db():
         self.cname_files = cname_files
         self.cname_tasks = cname_tasks
         self.verbose     = verbose
+        self.debug       = debug
 
         self.current_file = None
         self.current_task = None

@@ -33,9 +33,14 @@ def main(filename, config={}, parser_options={}, **kargs):
         if verbose:
             print(f"=== Filename: {filename} ===")
 
-        # Resolve variant
+        # Resolve parser
+        external_parser = parser_options.get('external_parser')
         variant = parser_options.get('variant', 1)
-        parser = import_module(f".index_{variant:03}", __package__)
+
+        module_name = external_parser or f".index_{variant:03}"
+        parser = import_module(module_name, __package__)
+        if debug:
+            print(parser)
 
         # Reg task
         saved, t_id = db.reg_task(parser, parser_options)
@@ -114,21 +119,21 @@ def main_file(filename, db, config, parser, parser_options):
                     print(f"Total: {total}; Grand total: { collection.estimated_document_count() }")
 
             except Exception as ex:
-                print_once(f"Exception occurred in '{filename}': {ex}", key=str(ex))
+                print_once(f"Exception occurred during processing '{filename}': {ex}", key=str(ex))
+                exception_occurred = True
 
                 db.push_file_record(
                     "exception",
                     type = type(ex).__name__,
-                    msg  = ex.msg,
+                    name = str(ex),
                     __dev = dict(
-                        name = str(ex),
-                        filename = ex.filename,
-                        lineno = ex.lineno,
-                        offset = ex.offset,
-                        text = ex.text
+                        args     = skip_exc(lambda: ex.args),
+                        filename = skip_exc(lambda: ex.filename),
+                        lineno   = skip_exc(lambda: ex.lineno),
+                        offset   = skip_exc(lambda: ex.offset),
+                        text     = skip_exc(lambda: ex.text)
                     )
                 )
-                exception_occurred = True
 
                 if raise_after_exception:
                     raise
@@ -172,11 +177,16 @@ def yield_file(filename, extra_info={}):
 
 def main_dir(dirname, db, config, parser_options):
     verbose = config.get('verbose')
-#   debug   = config.get('debug')
+    debug   = config.get('debug')
 
-    # Resolve variant
+    # Resolve parser
+    external_parser = parser_options.get('external_parser')
     variant = parser_options.get('variant', 1)
-    parser = import_module(f".index_{variant:03}", __package__)
+
+    module_name = external_parser or f".index_{variant:03}"
+    parser = import_module(module_name, __package__)
+    if debug:
+        print(parser)
 
     # Reg task
     saved, t_id = db.reg_task(parser, parser_options)
@@ -189,3 +199,10 @@ def main_dir(dirname, db, config, parser_options):
                     print(f"Filename: {filename}")
 
                 main_file(filename, db, config, parser, parser_options)
+
+
+def skip_exc(func, default=None):
+    try:
+        return func()
+    except:
+        return default
