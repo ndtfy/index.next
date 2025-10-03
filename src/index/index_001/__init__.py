@@ -14,13 +14,13 @@ __build__ = 1
 __rev__ = "2025-09-28"
 
 
-def main(filename, db, parser_options={}, **kargs):
+def main(filename, db, options={}, **kargs):
     _, ext = os.path.splitext(filename)
     ext = ext.lower()
 
     module = get_by_ext(ext)
     if module:
-        for res in module.main_yield(filename, db, parser_options):
+        for res in module.main_yield(filename, db, options):
             yield res
 
 

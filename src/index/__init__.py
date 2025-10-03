@@ -41,7 +41,7 @@ def main(filename, config={}, parser_options={}, **kargs):
         module_name = external_parser or f".index_{variant:03}"
         parser = import_module(module_name, __package__)
         if debug:
-            print(parser)
+            print(f"=== Parser: {parser.__file__} ===")
 
         # Reg task
         saved, t_id = db.reg_task(parser, parser_options)
@@ -64,6 +64,7 @@ def main_file(filename, db, config, parser, parser_options):
 
     file_keys   = parser_options.get('file_keys', {})
     record_keys = parser_options.get('record_keys', {})
+    proceed_anyway = parser_options.get('proceed_anyway')
     raise_after_exception = parser_options.get('raise_after_exception')
 
     collection = db[cname]
@@ -85,6 +86,15 @@ def main_file(filename, db, config, parser, parser_options):
             ** file_keys
         )
 
+#         if db.file_is_processed():
+#             if db.verbose:
+#                 print(f"File already processed, skipping: '{filename}'")
+# 
+#             if not proceed_anyway:
+#                 continue
+
+        db.disable_all(collection)
+
         exception_occurred = False
         with Timer(f"[ main_file({f_id}) ] finished", verbose) as t:
             try:
@@ -94,13 +104,22 @@ def main_file(filename, db, config, parser, parser_options):
                         total = 0
 
                     if records:
-                        db.insert_many(
-                            collection,
-                            records,
-                            _fid = f_id,
-                            ** extra,
-                            ** record_keys
-                        )
+                        if 1:
+                            db.upsert_many(
+                                collection,
+                                records,
+                                ** extra,
+                                ** record_keys
+                            )
+
+                        else:
+                            db.insert_many(
+                                collection,
+                                records,
+                                ** extra,
+                                ** record_keys
+                            )
+
                         if debug and not total:     # First iteration
                             print("Cumulative:", end=' ')
 
@@ -187,7 +206,7 @@ def main_dir(dirname, db, config, parser_options):
     module_name = external_parser or f".index_{variant:03}"
     parser = import_module(module_name, __package__)
     if debug:
-        print(parser)
+        print(f"=== Parser: {parser.__file__} ===")
 
     # Reg task
     saved, t_id = db.reg_task(parser, parser_options)

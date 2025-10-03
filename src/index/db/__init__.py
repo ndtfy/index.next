@@ -65,7 +65,7 @@ class Db():
         if kargs:
             record_list = list(map(lambda item: dict(item, **kargs), record_list))
 
-        if self.verbose:
+        if self.debug:
             print(f"[ { datetime.utcnow() } ]: inserting started ({ len(record_list) } records)...", end=" ")
 
         with Timer("completed", self.verbose) as t:
@@ -75,22 +75,32 @@ class Db():
 
 
     def upsert_many(self, collection, record_list, key_list=None, **kargs):
-        if kargs:
-            record_list = list(map(lambda item: dict(item, **kargs), record_list))
+        func = lambda k: k in key_list if key_list else \
+               lambda k: not k.startswith('_')
 
-        if key_list:
-            upserts = [ pymongo.UpdateOne({k: v for k, v in x.items() if k in key_list}, {'$set': x}, upsert=True) for x in record_list ]
+        upserts = [ pymongo.UpdateOne(
+            filter = {k: v for k, v in x.items() if func(k)},
+            update = {
+                '$set': { '_d': False },
+                '$inc': { '_v': 1 },
+                '$push': {
+                    '_extra': {
+                        '_tid': self.current_task,
+                        '_fid': self.current_file,
+                        ** kargs
+                    }
+                }
+            },
+            upsert = True
+        ) for x in record_list ]
 
-        else:
-            upserts = [ pymongo.UpdateOne({k: v for k, v in x.items() if not k.startswith('_')}, {'$set': x}, upsert=True) for x in record_list ]
-
-        if self.verbose:
+        if self.debug:
             print(f"[ { datetime.utcnow() } ]: upserting started ({ len(record_list) } records)...", end=" ")
 
         with Timer("completed", self.verbose) as t:
             res = collection.bulk_write(upserts)
 
-        if self.verbose:
+        if self.debug:
             print("deleted: %s / inserted: %s / matched: %s / modified: %s / upserted: %s" % (
                 res.deleted_count,
                 res.inserted_count,
@@ -100,6 +110,18 @@ class Db():
             )
 
         return res
+
+
+    def disable_all(self, collection):
+        collection.update_many(
+            filter = {
+                '_extra._tid': self.current_task,
+                '_extra._fid': self.current_file,
+            },
+            update = {
+                '$set': { '_d': True },
+            }
+        )
 
 
     # Methods for _tasks collection
@@ -187,6 +209,23 @@ class Db():
 
         self.current_file = res.inserted_id
         return False, res.inserted_id
+
+
+    def file_is_processed(self):
+        if not self.current_task:
+            return None
+
+        collection = self.db[self.cname_files]
+        res = collection.find_one({
+            "_id": self.current_file,
+            "records._tid": self.current_task,
+            "records.action": "completed"
+        }, {'_id': 1})
+
+        if res:
+            return True
+
+        return False
 
 
     def push_file_record(self, action, **kargs):
