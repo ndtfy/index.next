@@ -4,7 +4,7 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "index"
-version = "0.5.3.dev2"
+dynamic = ["version"]
 authors = [
     { name="Stan Ovchinnikov", email="lishnih@gmail.com" },
 ]
@@ -45,6 +45,9 @@ Source = "https://gitflic.ru/project/stan/index"
 
 [project.scripts]
 index = "index.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr="index.__version__" }
 
 [tool.flit.module]
 name = "index"

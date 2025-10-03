@@ -14,7 +14,7 @@ try:
 except:
     version = None
 
-from . import main as run
+from . import __version__, main as run
 
 
 def decode(code, value):
@@ -117,7 +117,7 @@ def main():
             print(f"openpyxl   {get_version('openpyxl')}")
             print(f"pyxlsb     {get_version('pyxlsb')}")
             print(f"xlrd       {get_version('xlrd')}")
-            print(f"{__package__:10} {get_version(__package__)}")
+        print(f"{__package__:10} {__version__}")
 
         return
 

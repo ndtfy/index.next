@@ -10,6 +10,7 @@ from zipfile import ZipFile
 from .timer import Timer
 from .db import Db
 from .print_once import print_once
+from .data import __version__
 
 
 def main(filename, config={}, parser_options={}, **kargs):
