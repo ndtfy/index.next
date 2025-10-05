@@ -2,7 +2,7 @@
 # coding=utf-8
 # Stan 2022-02-05
 
-"""Default parser for processing of spreadshhet files.
+"""Default parser for processing of spreadsheet files.
 Available file formats: xlsx, xlsm, xlsb, xls.
 """
 
@@ -11,7 +11,9 @@ from importlib import import_module
 
 
 __build__ = 1
-__rev__ = "2025-09-28"
+__rev__ = 20251005
+
+__preferred_upsert_keys__ = ['_row', '_shid', '_r']
 
 
 def main(filename, db, options={}, **kargs):

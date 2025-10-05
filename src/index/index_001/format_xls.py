@@ -56,21 +56,19 @@ def main_yield(filename, db, options={}, **kargs):
                 notes_i = list(filter(lambda x: x[0] == idx, notes))
 
                 record = {}
+
                 if row_mode:
-                    record['row'] = get_row_values(row)
+                    record['_row'] = get_row_values(row)
 
                 if cells_mode:
                     record['_cells'] = get_cells(row, notes_i)
 
                 record = {k: v for k, v in record.items() if v}
                 if record:
-                    record = dict(**record, _r=_r)
+                    record = dict(record, _shid=shid, _r=_r)
                     records.append(record)
 
-            yield records, {
-                '_shid': shid,
-#               '_shname': sh.name
-            }
+            yield records
             records = []        # release memory
 
         book.unload_sheet(shname)

@@ -51,8 +51,9 @@ def main_yield(filename, db, options={}, **kargs):
 
             for kj, row in enumerate(chunk_i):
                 record = {}
+
                 if row_mode:
-                    record['row'] = get_row_values(row)
+                    record['_row'] = get_row_values(row)
 
                 if cells_mode:
                     record['_cells'] = get_cells(row)
@@ -62,13 +63,10 @@ def main_yield(filename, db, options={}, **kargs):
                     idx = ki * chunk_rows + kj
                     _r = idx + 1
 
-                    record = dict(**record, _r=_r)
+                    record = dict(record, _shid=shid, _r=_r)
                     records.append(record)
 
-            yield records, {
-                '_shid': shid,
-#               '_shname': sh.title
-            }
+            yield records
             records = []        # release memory
 
     book.close()

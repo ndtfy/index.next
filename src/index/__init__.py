@@ -4,11 +4,13 @@
 
 import os
 import tempfile
+# import warnings
 from importlib import import_module
 from zipfile import ZipFile
 
 from .timer import Timer
 from .db import Db
+from .utils import get_memory_info, skip_exc
 from .print_once import print_once
 from .data import __version__
 
@@ -24,6 +26,8 @@ def main(filename, config={}, parser_options={}, **kargs):
 
     verbose = config.get('verbose')
     debug   = config.get('debug')
+
+#   warnings.simplefilter('always', DeprecationWarning)
 
     # Db object
     db = Db(**config)
@@ -58,14 +62,20 @@ def main(filename, config={}, parser_options={}, **kargs):
 
 
 def main_file(filename, db, config, parser, parser_options):
-    cname       = config.get('cname', 'dump')
     verbose     = config.get('verbose')
     debug       = config.get('debug')
+
+    cname       = parser_options.get('cname') or \
+                  config.get('cname', 'dump')
 
     file_keys   = parser_options.get('file_keys', {})
     record_keys = parser_options.get('record_keys', {})
     proceed_anyway = parser_options.get('proceed_anyway')
     raise_after_exception = parser_options.get('raise_after_exception')
+
+    upsert_mode = parser_options.get('upsert_mode')
+    upsert_keys = parser_options.get('upsert_keys') or \
+                  getattr(parser, '__preferred_upsert_keys__', None)
 
     collection = db[cname]
     dirname = os.path.dirname(filename)
@@ -86,29 +96,40 @@ def main_file(filename, db, config, parser, parser_options):
             ** file_keys
         )
 
-#         if db.file_is_processed():
-#             if db.verbose:
-#                 print(f"File already processed, skipping: '{filename}'")
+#       if db.file_is_processed():
+#           if db.verbose:
+#               print(f"File already processed, skipping: '{filename}'")
 # 
-#             if not proceed_anyway:
-#                 continue
+#           if not proceed_anyway:
+#               continue
 
-        db.disable_all(collection)
+        if upsert_mode:
+            db.upsert_pre_handle(collection)
 
         exception_occurred = False
         with Timer(f"[ main_file({f_id}) ] finished", verbose) as t:
             try:
                 total = None
-                for records, extra in parser.main(localname, db, parser_options):
+                consumption = []
+
+                for records in parser.main(localname, db, parser_options):
+                    if isinstance(records, tuple):
+#                       warnings.warn("`parser_returns_tuple` is deprecated. Use `parser_returns_records` instead.", DeprecationWarning, stacklevel=2)
+                        records, extra = records
+                        records = [ dict(record, **extra) for record in records ]
+
                     if total is None:
                         total = 0
 
                     if records:
-                        if 1:
+                        consumption.append( dict(len=len(records),
+                            memory=get_memory_info()) )
+
+                        if upsert_mode:
                             db.upsert_many(
                                 collection,
                                 records,
-                                ** extra,
+                                upsert_keys = upsert_keys,
                                 ** record_keys
                             )
 
@@ -116,7 +137,6 @@ def main_file(filename, db, config, parser, parser_options):
                             db.insert_many(
                                 collection,
                                 records,
-                                ** extra,
                                 ** record_keys
                             )
 
@@ -158,6 +178,10 @@ def main_file(filename, db, config, parser, parser_options):
                 if raise_after_exception:
                     raise
 
+            finally:
+                if upsert_mode:
+                    db.upsert_post_handle(collection)
+
         if verbose:     # New line after Timer message
             print()
 
@@ -165,6 +189,7 @@ def main_file(filename, db, config, parser, parser_options):
             db.push_file_record(
                 'skipped' if total is None else 'completed',
                 total = total,
+                consumption = consumption,
                 elapsed = t.elapsed
             )
 
@@ -219,10 +244,3 @@ def main_dir(dirname, db, config, parser_options):
                     print(f"Filename: {filename}")
 
                 main_file(filename, db, config, parser, parser_options)
-
-
-def skip_exc(func, default=None):
-    try:
-        return func()
-    except:
-        return default
