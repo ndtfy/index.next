@@ -1,15 +1,11 @@
-[build-system]
-requires = ["flit_core >=3.2,<4"]
-build-backend = "flit_core.buildapi"
-
 [project]
 name = "index"
-dynamic = ["version"]
-authors = [
-    { name="Stan Ovchinnikov", email="lishnih@gmail.com" },
-]
+version = "0.5.4.dev0"
 description = "A lightweight spreadsheet indexing system"
 readme = "README.md"
+authors = [
+    { name = "Stan Ovchinnikov", email = "lishnih@gmail.com" }
+]
 license = "MIT OR LGPL-2.1-or-later"
 license-files = ["LICENSE*"]
 classifiers = [
@@ -27,16 +23,15 @@ dependencies = [
     "pymongo>=4.0",
 ]
 [project.optional-dependencies]
-obsolete = [
-    "xlrd",
-]
-dotenv = [
-    "python-dotenv",
-]
+obsolete = ["xlrd"]
+dotenv = ["python-dotenv"]
 all = [
     "index[obsolete]",
     "index[dotenv]",
 ]
+
+[dependency-groups]
+dev = ["ruff"]
 
 [project.urls]
 Homepage = "https://github.com/ndtfy/index.next"
@@ -46,23 +41,12 @@ Source = "https://gitflic.ru/project/stan/index"
 [project.scripts]
 index = "index.cli:main"
 
-[tool.setuptools.dynamic]
-version = { attr="index.__version__" }
+[build-system]
+requires = ["uv_build>=0.8.24,<0.9.0"]
+build-backend = "uv_build"
 
-[tool.flit.module]
-name = "index"
-
-[tool.flit.sdist]
-include = [
-    "docs/",
-    "examples/",
-    "tests/",
-]
-exclude = [
-    "docs/_build/",
-    "src/start.py",
-    ".gitignore",
-]
+[tool.uv]
+default-groups = ["dev"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -78,11 +62,13 @@ source = ["index", "tests"]
 source = ["src", "*/site-packages"]
 
 [tool.mypy]
-python_version = "3.8"
-files = ["src/index"]
+python_version = "3.9"
+files = ["src"]
 show_error_codes = true
 pretty = true
 strict = true
+disallow_untyped_defs = false
+disallow_untyped_calls = false
 
 [[tool.mypy.overrides]]
 module = [
@@ -94,8 +80,8 @@ module = [
 ignore_missing_imports = true
 
 [tool.pyright]
-pythonVersion = "3.8"
-include = ["src/index"]
+pythonVersion = "3.6"
+include = ["src"]
 typeCheckingMode = "basic"
 
 [tool.ruff]
