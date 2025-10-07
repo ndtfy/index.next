@@ -3,61 +3,9 @@
 # Stan 2021-05-31
 
 import argparse
-import configparser
-import json
-import os
 import platform
-import re
 
-try:
-    from importlib.metadata import version  # Available since Python 3.8
-except:
-    version = None
-
-from . import __version__, main as run
-
-
-def decode(code, value):
-    if code == 'JSON':
-        return json.loads(value)
-    elif code == 'INT':
-        return int(value)
-    elif code == 'LIST':
-        return [ i.strip() for i in value.split(',') ]
-    elif code == 'INTLIST':
-        return [ int(i.strip()) for i in value.split(',') ]
-    else:
-        print("Unknown code:", code)
-        return value
-
-
-def get_version(pkg_name):
-    try:
-        ver = version(pkg_name) if version else '...'
-    except:
-        ver = "<not installed>"
-
-    return ver
-
-
-def resolve_vars(vars, dictionary):
-    for key, value in vars.items():
-        if isinstance(value, str):
-            for dkey, dvalue in dictionary.items():
-                value = value.replace(dkey, dvalue)
-
-            vars[key] = value
-
-
-def debug_vars(vars, level=1):
-    kv = vars.items()
-    for key, value in kv:
-        print(f"{'  ' * level}- {key:16}: {value}")
-
-    if not kv:
-        print("  <empty>")
-
-    print()
+from . import main as run
 
 
 def main():
@@ -80,14 +28,6 @@ def main():
                         help="specify a collection name (default is 'dump')",
                         metavar="name")
 
-    parser.add_argument('--cfiles',
-                        help="specify a collection name for file log (default is '_files')",
-                        metavar="name")
-
-    parser.add_argument('--ctasks',
-                        help="specify a collection name for task info (default is '_tasks')",
-                        metavar="name")
-
     parser.add_argument('--config',
                         help="specify a config file (default is 'parser.cfg' located in the target directory)",
                         metavar="parser.cfg")
@@ -106,119 +46,23 @@ def main():
 
     args = parser.parse_args()
 
-#   if args.debug:
-#       print("Command line arguments:")
-#       debug_vars(vars(args))
-
     if args.version:
-        print(f"Python     {platform.python_version()}")
-        if version:
-            print(f"pymongo    {get_version('pymongo')}")
-            print(f"openpyxl   {get_version('openpyxl')}")
-            print(f"pyxlsb     {get_version('pyxlsb')}")
-            print(f"xlrd       {get_version('xlrd')}")
-        print(f"{__package__:10} {__version__}")
-
+        print(f"Python   {platform.python_version()}")
+        try:
+            # Available since Python 3.8
+            from importlib.metadata import version
+            print(f"{__package__:8} {version('index')}")
+            print(f"pymongo  {version('pymongo')}")
+            print(f"openpyxl {version('openpyxl')}")
+            print(f"pyxlsb   {version('pyxlsb')}")
+            print(f"xlrd     {version('xlrd')}")
+        except:
+            pass
         return
 
-    if args.filename is None:
+    if not args.filename:
         print("Path not specified")
-
         return
 
-    if not os.path.exists(args.filename):
-        raise FileNotFoundError(f"Path not found: '{args.filename}'")
-
-    # Optionals arguments
-    dburi       = args.dburi  or os.getenv("INDEX_DBURI")       or "mongodb://localhost"
-    dbname      = args.dbname or os.getenv("INDEX_DBNAME")
-    cname       = args.cname  or os.getenv("INDEX_CNAME")       or "dump"
-    cname_files = args.cfiles or os.getenv("INDEX_CNAME_FILES") or "_files"
-    cname_tasks = args.ctasks or os.getenv("INDEX_CNAME_TASKS") or "_tasks"
-
-    # Resolve config path
-    fullname = os.path.abspath(args.filename)
-    if os.path.isfile(fullname):
-        dirname = os.path.dirname(fullname)
-    else:
-        dirname = fullname.rstrip('/')
-
-    config_file = args.config or os.getenv("config_file")
-    if config_file:
-        if not os.path.isabs(config_file):
-            config_file = os.path.join(dirname, config_file)
-
-        if not os.path.isfile(config_file):
-            raise FileNotFoundError(f"Config not found: '{config_file}'")
-
-    else:
-        config_file = os.path.join(dirname, "parser.cfg")
-
-    # Read config file
-    if os.path.isfile(config_file):
-        if args.debug:
-            print(f"Config file: '{config_file}'\n")
-
-        c = configparser.ConfigParser()
-        c.read(config_file, encoding="utf8")
-
-        # Read and resolve parser section
-        parser_options = dict(c.items("DEFAULT"))
-        for key, value in parser_options.items():
-            res = re.split("^{{ (.+) }}", value, 1)
-            if len(res) == 3:
-                _, code, value = res
-                parser_options[key] = decode(code, value)
-
-#       if args.debug:
-#           print("Parser section:")
-#           debug_vars(parser_options)
-
-    else:
-        print("Config file is not specified, default parser options will be applied\n")
-        parser_options = {}
-
-    # Define variables
-    parentdirname = os.path.dirname(dirname)
-    dictionary = {
-        '{DIRNAME}':           dirname,
-        '{BASEDIRNAME}':       os.path.basename(dirname),
-        '{PARENTDIRNAME}':     parentdirname,
-        '{PARENTBASEDIRNAME}': os.path.basename(parentdirname),
-    }
-    if args.debug:
-        print("Dictionary:")
-        debug_vars(dictionary)
-
-    # Resolve app config
-    app_config = {
-        'dburi':       dburi,
-#       'tls_ca_file': tls_ca_file,
-        'dbname':      dbname,
-        'cname':       cname,
-        'cname_files': cname_files,
-        'cname_tasks': cname_tasks,
-        'verbose':     args.verbose,
-        'debug':       args.debug
-    }
-
-    resolve_vars(app_config, dictionary)
-    if args.debug:
-        print("app_config resolved:")
-        debug_vars(app_config)
-
-    # Resolve parser options
-    resolve_vars(parser_options, dictionary)
-    if args.debug:
-        print("parser_options resolved:")
-        debug_vars(parser_options)
-
-    res = run(
-        args.filename,
-        config = app_config,
-        parser_options = parser_options
-    )
-
-
-if __name__ == '__main__':
-    main()
+    params = {k: v for k, v in vars(args).items() if v}
+    run(**params)

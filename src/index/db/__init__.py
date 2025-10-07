@@ -11,8 +11,10 @@ from ..utils import get_file_info
 
 
 class Db():
-    def __init__(self, dburi,
+    def __init__(self,
+        dburi       = 'mongodb://localhost',
         dbname      = None,
+        cname       = 'dump',
         cname_files = '_files',
         cname_tasks = '_tasks',
         tls_ca_file = None,
@@ -22,6 +24,7 @@ class Db():
     ):
         self.dburi       = dburi
         self.tls_ca_file = tls_ca_file
+        self.cname       = cname
         self.cname_files = cname_files
         self.cname_tasks = cname_tasks
         self.verbose     = verbose

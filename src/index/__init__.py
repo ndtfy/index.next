@@ -2,7 +2,10 @@
 # coding=utf-8
 # Stan 2024-12-25
 
+import configparser
+import json
 import os
+import re
 import tempfile
 # import warnings
 from importlib import import_module
@@ -10,32 +13,50 @@ from zipfile import ZipFile
 
 from .timer import Timer
 from .db import Db
-from .utils import get_memory_info, skip_exc
+from .utils import get_memory_info
 from .print_once import print_once
-from .data import __version__
 
 
-def main(filename, config={}, parser_options={}, **kargs):
+def main(**kargs):
     """
     Main file processing function.
-
-    Initializes the required tools using the supplied `config`,
-    then iterates over each file and invokes the handler,
-    passing along the `parser_options` for each call.
     """
-
-    verbose = config.get('verbose')
-    debug   = config.get('debug')
 
 #   warnings.simplefilter('always', DeprecationWarning)
 
     # Db object
-    db = Db(**config)
-    if debug:
+    db = Db(**kargs)
+    if db.debug:
         print(db, end="\n\n")
 
+    # Resolve config path
+    filename = kargs.get('filename')
+    config   = kargs.get('config')
+
+    fullname = os.path.abspath(filename)
+    if os.path.isfile(fullname):
+        dirname = os.path.dirname(fullname)
+    else:
+        dirname = fullname.rstrip('/')
+
+    config_file = config or os.getenv("INDEX_CONFIG") or "parser.cfg"
+    if not os.path.isabs(config_file):
+        config_file = os.path.join(dirname, config_file)
+
+    if not os.path.isfile(config_file):
+        if config:      # Required if argument specified
+            raise FileNotFoundError(f"Config not found: '{config_file}'")
+
+        else:
+            config_file = None
+
+    parser_options = {}
+    if config_file:
+        parser_options = load_options(config_file)
+
+    # Handle filename
     if os.path.isfile(filename):
-        if verbose:
+        if db.verbose:
             print(f"=== Filename: {filename} ===")
 
         # Resolve parser
@@ -44,30 +65,25 @@ def main(filename, config={}, parser_options={}, **kargs):
 
         module_name = external_parser or f".index_{variant:03}"
         parser = import_module(module_name, __package__)
-        if debug:
+        if db.debug:
             print(f"=== Parser: {parser.__file__} ===")
 
         # Reg task
         saved, t_id = db.reg_task(parser, parser_options)
 
         filename = os.path.abspath(filename)
-        main_file(filename, db, config, parser, parser_options)
+        main_file(filename, db, parser, parser_options)
 
     else:
-        if verbose:
+        if db.verbose:
             print(f"=== Dirname: {filename} ===")
 
         filename = os.path.abspath(filename)
-        main_dir(filename, db, config, parser_options)
+        main_dir(filename, db, parser_options)
 
 
-def main_file(filename, db, config, parser, parser_options):
-    verbose     = config.get('verbose')
-    debug       = config.get('debug')
-
-    cname       = parser_options.get('cname') or \
-                  config.get('cname', 'dump')
-
+def main_file(filename, db, parser, parser_options):
+    cname       = parser_options.get('cname') or db.cname
     file_keys   = parser_options.get('file_keys', {})
     record_keys = parser_options.get('record_keys', {})
     proceed_anyway = parser_options.get('proceed_anyway')
@@ -107,7 +123,7 @@ def main_file(filename, db, config, parser, parser_options):
             db.upsert_pre_handle(collection)
 
         exception_occurred = False
-        with Timer(f"[ main_file({f_id}) ] finished", verbose) as t:
+        with Timer(f"[ main_file({f_id}) ] finished", db.verbose) as t:
             try:
                 total = None
                 consumption = []
@@ -140,38 +156,44 @@ def main_file(filename, db, config, parser, parser_options):
                                 ** record_keys
                             )
 
-                        if debug and not total:     # First iteration
+                        if db.debug and not total:     # First iteration
                             print("Cumulative:", end=' ')
 
                         total += len(records)
 
-                        if debug:
+                        if db.debug:
                             print(total, end=' ')
 
                     else:
-                        if verbose:
+                        if db.verbose:
                             print("<No records>")
 
-                if debug and total:     # New line after Cumulative message
+                if db.debug and total:     # New line after Cumulative message
                     print()
 
-                if verbose and total:
+                if db.verbose and total:
                     print(f"Total: {total}; Grand total: { collection.estimated_document_count() }")
 
             except Exception as ex:
                 print_once(f"Exception occurred during processing '{filename}': {ex}", key=str(ex))
                 exception_occurred = True
 
+                extra = {}
+                if isinstance(ex, SyntaxError):
+                    extra = dict(
+                        filename = ex.filename,
+                        lineno   = ex.lineno,
+                        offset   = ex.offset,
+                        text     = ex.text
+                    )                                
+
                 db.push_file_record(
                     "exception",
                     type = type(ex).__name__,
                     name = str(ex),
                     __dev = dict(
-                        args     = skip_exc(lambda: ex.args),
-                        filename = skip_exc(lambda: ex.filename),
-                        lineno   = skip_exc(lambda: ex.lineno),
-                        offset   = skip_exc(lambda: ex.offset),
-                        text     = skip_exc(lambda: ex.text)
+                        args = ex.args,
+                        ** extra
                     )
                 )
 
@@ -182,14 +204,14 @@ def main_file(filename, db, config, parser, parser_options):
                 if upsert_mode:
                     db.upsert_post_handle(collection)
 
-        if verbose:     # New line after Timer message
+        if db.verbose:     # New line after Timer message
             print()
 
         if not exception_occurred:
             db.push_file_record(
                 'skipped' if total is None else 'completed',
                 total = total,
-                consumption = consumption,
+                __consumption = consumption,
                 elapsed = t.elapsed
             )
 
@@ -220,27 +242,53 @@ def yield_file(filename, extra_info={}):
         yield filename, localname, source
 
 
-def main_dir(dirname, db, config, parser_options):
-    verbose = config.get('verbose')
-    debug   = config.get('debug')
-
+def main_dir(dirname, db, parser_options):
     # Resolve parser
     external_parser = parser_options.get('external_parser')
     variant = parser_options.get('variant', 1)
 
     module_name = external_parser or f".index_{variant:03}"
     parser = import_module(module_name, __package__)
-    if debug:
+    if db.debug:
         print(f"=== Parser: {parser.__file__} ===")
 
     # Reg task
     saved, t_id = db.reg_task(parser, parser_options)
 
-    with Timer("[ main_dir ] finished", verbose) as t:
+    with Timer("[ main_dir ] finished", db.verbose) as t:
         for root, dirs, files in os.walk(dirname):
             for name in files:
                 filename = os.path.join(root, name)
-                if verbose:
+                if db.verbose:
                     print(f"Filename: {filename}")
 
-                main_file(filename, db, config, parser, parser_options)
+                main_file(filename, db, parser, parser_options)
+
+
+def load_options(config_file):
+    # Read and resolve DEFAULT section
+    c = configparser.ConfigParser()
+    c.read(config_file, encoding="utf8")
+
+    options = dict(c.items("DEFAULT"))
+    for key, value in options.items():
+        res = re.split("^{{ (.+) }}", value, 1)
+        if len(res) == 3:
+            _, code, value = res
+            options[key] = decode(code, value)
+
+    return options
+
+
+def decode(code, value):
+    if code == 'JSON':
+        return json.loads(value)
+    elif code == 'INT':
+        return int(value)
+    elif code == 'LIST':
+        return [ i.strip() for i in value.split(',') ]
+    elif code == 'INTLIST':
+        return [ int(i.strip()) for i in value.split(',') ]
+    else:
+        print("Unknown code:", code)
+        return value
